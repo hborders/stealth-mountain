@@ -1,6 +1,7 @@
 package com.github.hborders.stealthmountain;
 
 import java.io.IOException;
+import java.util.List;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -14,6 +15,11 @@ import twitter4j.Twitter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
 import twitter4j.auth.AccessToken;
+
+import com.google.appengine.api.datastore.DatastoreService;
+import com.google.appengine.api.datastore.DatastoreServiceFactory;
+import com.google.appengine.api.datastore.Entity;
+import com.google.appengine.api.datastore.FetchOptions;
 
 @SuppressWarnings("serial")
 public class StealthMountainServlet extends HttpServlet {
@@ -36,20 +42,52 @@ public class StealthMountainServlet extends HttpServlet {
 			sneakPeakQuery.setRpp(100);
 			QueryResult sneakPeakQueryResult = twitter.search(sneakPeakQuery);
 
-			for (Tweet sneakPeakTweet : sneakPeakQueryResult.getTweets()) {
-				resp.getWriter().println(
-						"From " + sneakPeakTweet.getFromUser() + ": "
-								+ sneakPeakTweet.getText() + "<br>");
-				String correctionStatus = "@" + sneakPeakTweet.getFromUser()
-						+ " I think you mean \"sneak peek\"";
-				StatusUpdate correctionStatusUpdate = new StatusUpdate(
-						correctionStatus);
-				correctionStatusUpdate.setInReplyToStatusId(sneakPeakTweet
-						.getId());
-				twitter.updateStatus(correctionStatusUpdate);
-			}
+			if (!sneakPeakQueryResult.getTweets().isEmpty()) {
+				DatastoreService datastoreService = DatastoreServiceFactory
+						.getDatastoreService();
+				com.google.appengine.api.datastore.Query lastSneakPeakTweetIdDatastoreQuery = new com.google.appengine.api.datastore.Query(
+						"LastSneakPeakTweetId");
+				List<Entity> lastSneakPeakTweetIdEntities = datastoreService
+						.prepare(lastSneakPeakTweetIdDatastoreQuery).asList(
+								FetchOptions.Builder.withLimit(1));
+				Entity lastSneakPeakTweetIdEntity;
+				if (lastSneakPeakTweetIdEntities.size() > 0) {
+					lastSneakPeakTweetIdEntity = lastSneakPeakTweetIdEntities
+							.get(0);
+				} else {
+					lastSneakPeakTweetIdEntity = new Entity(
+							"LastSneakPeakTweetId");
+				}
 
-			resp.getWriter().println("Success!");
+				Long lastSneakPeakTweetId = (Long) lastSneakPeakTweetIdEntity
+						.getProperty("lastSneakPeakTweetId");
+				lastSneakPeakTweetIdEntity
+						.setUnindexedProperty("lastSneakPeakTweetId",
+								sneakPeakQueryResult.getMaxId());
+				datastoreService.put(lastSneakPeakTweetIdEntity);
+
+				for (Tweet sneakPeakTweet : sneakPeakQueryResult.getTweets()) {
+					if ((lastSneakPeakTweetId == null)
+							|| (sneakPeakTweet.getId() > lastSneakPeakTweetId)) {
+						resp.getWriter().println(
+								"From " + sneakPeakTweet.getFromUser() + ": "
+										+ sneakPeakTweet.getText() + "<br>");
+						String correctionStatus = "@"
+								+ sneakPeakTweet.getFromUser()
+								+ " I think you mean \"sneak peek\"";
+						StatusUpdate correctionStatusUpdate = new StatusUpdate(
+								correctionStatus);
+						correctionStatusUpdate
+								.setInReplyToStatusId(sneakPeakTweet.getId());
+						twitter.updateStatus(correctionStatusUpdate);
+					} else {
+						break;
+					}
+				}
+				resp.getWriter().println("Success!");
+			} else {
+				resp.getWriter().println("No tweets found!");
+			}
 		} catch (TwitterException e) {
 			e.printStackTrace(System.err);
 			resp.getWriter().println("Fail!<br>");
