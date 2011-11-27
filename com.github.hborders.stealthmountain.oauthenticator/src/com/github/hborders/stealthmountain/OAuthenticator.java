@@ -15,7 +15,7 @@ public class OAuthenticator {
 		// The factory instance is re-useable and thread safe.
 		Twitter twitter = new TwitterFactory().getInstance();
 		twitter.setOAuthConsumer("consumer key", "consumer secret");
-
+		
 		RequestToken requestToken = twitter.getOAuthRequestToken();
 		AccessToken accessToken = null;
 		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
