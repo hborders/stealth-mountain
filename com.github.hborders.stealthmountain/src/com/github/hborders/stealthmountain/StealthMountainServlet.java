@@ -36,6 +36,7 @@ public class StealthMountainServlet extends HttpServlet {
 		// reasons
 		twitter.setOAuthConsumer("consumer key", "consumer secret");
 		twitter.setOAuthAccessToken(new AccessToken("token", "token secret"));
+
 		try {
 			Query sneakPeakQuery = new Query("sneak peak");
 			sneakPeakQuery.setResultType(Query.RECENT);
@@ -71,6 +72,7 @@ public class StealthMountainServlet extends HttpServlet {
 							|| (sneakPeakTweet.getId() > lastSneakPeakTweetId)) {
 						resp.getWriter().println(
 								"From " + sneakPeakTweet.getFromUser() + ": "
+										+ sneakPeakTweet.getId() + " "
 										+ sneakPeakTweet.getText() + "<br>");
 						String correctionStatus = "@"
 								+ sneakPeakTweet.getFromUser()
