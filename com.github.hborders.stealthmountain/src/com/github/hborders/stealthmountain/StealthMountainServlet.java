@@ -31,7 +31,7 @@ import com.google.appengine.api.datastore.Query.FilterOperator;
 @SuppressWarnings("serial")
 public class StealthMountainServlet extends HttpServlet {
 	private static final int MAX_DATASTORE_QUERY_FILTER_LIST_SIZE = 30;
-	private static final int MAX_CORRECTION_TWEET_COUNT = 5;
+	private static final int MAX_CORRECTION_TWEET_COUNT = 1;
 
 	public void doGet(HttpServletRequest req, HttpServletResponse resp)
 			throws IOException {
@@ -82,59 +82,32 @@ public class StealthMountainServlet extends HttpServlet {
 				List<Tweet> oldestTweets = new ArrayList<Tweet>(
 						sneakPeakQueryResult.getTweets());
 				Collections.reverse(oldestTweets);
-				for (Tweet sneakPeakTweet : oldestTweets) {
-					String sneakPeakTweetLog = "Found: " + sneakPeakTweet
-							+ "<br>";
-					resp.getWriter().println(sneakPeakTweetLog);
-					System.out.println(sneakPeakTweetLog);
-				}
 
 				for (Tweet sneakPeakTweet : oldestTweets) {
-					String sneakPeakUser;
-					long sneakPeakUserId;
-					long sneakPeakTweetId;
-					String sneakPeakText;
-					if (sneakPeakTweet.getText().startsWith("RT")) {
-						Status sneakPeakStatus = twitter
-								.showStatus(sneakPeakTweet.getId());
-						if (sneakPeakStatus.isRetweet()) {
-							Status retweetedSneakPeakStatus = sneakPeakStatus
-									.getRetweetedStatus();
-							sneakPeakUser = retweetedSneakPeakStatus.getUser()
-									.getScreenName();
-							sneakPeakUserId = retweetedSneakPeakStatus
-									.getUser().getId();
-							sneakPeakTweetId = retweetedSneakPeakStatus.getId();
-							sneakPeakText = retweetedSneakPeakStatus.getText();
-						} else {
-							sneakPeakUser = sneakPeakTweet.getFromUser();
-							sneakPeakUserId = sneakPeakTweet.getFromUserId();
-							sneakPeakTweetId = sneakPeakTweet.getId();
-							sneakPeakText = sneakPeakTweet.getText();
+					if (!sneakPeakTweet.getText().contains("RT")) {
+						String sneakPeakUser = sneakPeakTweet.getFromUser();
+						long sneakPeakUserId = sneakPeakTweet.getFromUserId();
+						long sneakPeakTweetId = sneakPeakTweet.getId();
+						String sneakPeakText = sneakPeakTweet.getText();
+
+						if (!sneakPeakUserIdsToSneakPeaks
+								.containsKey(sneakPeakUserId)) {
+							sneakPeakUserIdsToSneakPeaks.put(sneakPeakUserId,
+									new SneakPeak(sneakPeakUser,
+											sneakPeakUserId, sneakPeakTweetId,
+											sneakPeakText));
+							datastoreQueryFilterSneakPeakUserIds
+									.add(sneakPeakUserId);
 						}
-					} else {
-						sneakPeakUser = sneakPeakTweet.getFromUser();
-						sneakPeakUserId = sneakPeakTweet.getFromUserId();
-						sneakPeakTweetId = sneakPeakTweet.getId();
-						sneakPeakText = sneakPeakTweet.getText();
-					}
 
-					if (!sneakPeakUserIdsToSneakPeaks
-							.containsKey(sneakPeakUserId)) {
-						sneakPeakUserIdsToSneakPeaks.put(sneakPeakUserId,
-								new SneakPeak(sneakPeakUser, sneakPeakUserId,
-										sneakPeakTweetId, sneakPeakText));
-						datastoreQueryFilterSneakPeakUserIds
-								.add(sneakPeakUserId);
-					}
+						if (datastoreQueryFilterSneakPeakUserIds.size() == MAX_DATASTORE_QUERY_FILTER_LIST_SIZE) {
+							removeCorrectedUserSneakPeaks(
+									sneakPeakUserIdsToSneakPeaks,
+									datastoreQueryFilterSneakPeakUserIds);
 
-					if (datastoreQueryFilterSneakPeakUserIds.size() == MAX_DATASTORE_QUERY_FILTER_LIST_SIZE) {
-						removeCorrectedUserSneakPeaks(
-								sneakPeakUserIdsToSneakPeaks,
-								datastoreQueryFilterSneakPeakUserIds);
-
-						if (sneakPeakUserIdsToSneakPeaks.size() >= MAX_CORRECTION_TWEET_COUNT) {
-							break;
+							if (sneakPeakUserIdsToSneakPeaks.size() >= MAX_CORRECTION_TWEET_COUNT) {
+								break;
+							}
 						}
 					}
 				}
@@ -204,6 +177,7 @@ public class StealthMountainServlet extends HttpServlet {
 				}
 			} else {
 				resp.getWriter().println("No tweets found!");
+				System.out.println("No tweets found!");
 			}
 		} catch (TwitterException e) {
 			e.printStackTrace(System.err);
