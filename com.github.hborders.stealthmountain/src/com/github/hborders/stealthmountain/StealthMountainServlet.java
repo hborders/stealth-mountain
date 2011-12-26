@@ -1,18 +1,14 @@
 package com.github.hborders.stealthmountain;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.ListIterator;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import twitter4j.Query;
-import twitter4j.QueryResult;
 import twitter4j.Status;
 import twitter4j.StatusUpdate;
 import twitter4j.Tweet;
@@ -32,9 +28,6 @@ import com.google.appengine.api.datastore.Query.FilterOperator;
 
 @SuppressWarnings("serial")
 public class StealthMountainServlet extends HttpServlet {
-	private static final int MAX_DATASTORE_QUERY_FILTER_LIST_SIZE = 30;
-	private static final int MAX_CORRECTION_TWEET_COUNT = 1;
-
 	public void doGet(HttpServletRequest req, HttpServletResponse resp)
 			throws IOException {
 		resp.setContentType("text/html");
@@ -56,144 +49,45 @@ public class StealthMountainServlet extends HttpServlet {
 			try {
 				DatastoreService datastoreService = DatastoreServiceFactory
 						.getDatastoreService();
-				com.google.appengine.api.datastore.Query lastSneakPeakTweetIdDatastoreQuery = new com.google.appengine.api.datastore.Query(
-						"LastSneakPeakTweetId");
-				List<Entity> lastSneakPeakTweetIdEntities = datastoreService
-						.prepare(lastSneakPeakTweetIdDatastoreQuery).asList(
-								FetchOptions.Builder.withLimit(1));
-				Entity lastSneakPeakTweetIdEntity;
-				if (lastSneakPeakTweetIdEntities.size() > 0) {
-					lastSneakPeakTweetIdEntity = lastSneakPeakTweetIdEntities
-							.get(0);
-				} else {
-					lastSneakPeakTweetIdEntity = new Entity(
-							"LastSneakPeakTweetId");
-				}
+				Entity lastSneakPeakTweetIdEntity = findOrCreateLastSneakPeakTweetIdEntity(datastoreService);
 
 				Long lastSneakPeakTweetId = (Long) lastSneakPeakTweetIdEntity
 						.getProperty("lastSneakPeakTweetId");
+				List<Tweet> sneakPeakTweets = findSneakPeakTweets(twitter,
+						lastSneakPeakTweetId);
 
-				Query sneakPeakQuery = new Query("\"sneak peak\"");
-				sneakPeakQuery.setLang("en");
-				sneakPeakQuery.setResultType(Query.RECENT);
-				sneakPeakQuery.setRpp(100);
-				if (lastSneakPeakTweetId != null) {
-					sneakPeakQuery.setSinceId(lastSneakPeakTweetId);
-				}
+				if (sneakPeakTweets.isEmpty()) {
+					resp.getWriter().println("No tweets found!");
+					System.out.println("No tweets found!");
+				} else {
+					for (ListIterator<Tweet> sneakPeakTweetsListIterator = sneakPeakTweets
+							.listIterator(sneakPeakTweets.size()); sneakPeakTweetsListIterator
+							.hasPrevious();) {
+						Tweet sneakPeakTweet = sneakPeakTweetsListIterator
+								.previous();
+						String sneakPeakTweetText = sneakPeakTweet.getText();
+						if (!sneakPeakTweetText.contains("@")) {
+							String sneakPeakTweetLowercasedText = sneakPeakTweetText
+									.toLowerCase();
+							if (sneakPeakTweetLowercasedText
+									.contains("sneak peak")) {
+								long sneakPeakUserId = sneakPeakTweet
+										.getFromUserId();
+								long sneakPeakTweetId = sneakPeakTweet.getId();
 
-				QueryResult sneakPeakQueryResult = twitter
-						.search(sneakPeakQuery);
-
-				if (!sneakPeakQueryResult.getTweets().isEmpty()) {
-					Map<Long, SneakPeak> sneakPeakUserIdsToSneakPeaks = new HashMap<Long, SneakPeak>();
-					List<Long> datastoreQueryFilterSneakPeakUserIds = new ArrayList<Long>(
-							MAX_DATASTORE_QUERY_FILTER_LIST_SIZE);
-
-					List<Tweet> oldestTweets = new ArrayList<Tweet>(
-							sneakPeakQueryResult.getTweets());
-					Collections.reverse(oldestTweets);
-
-					for (Tweet sneakPeakTweet : oldestTweets) {
-						if (!sneakPeakTweet.getText().contains("RT")) {
-							String sneakPeakUser = sneakPeakTweet.getFromUser();
-							long sneakPeakUserId = sneakPeakTweet
-									.getFromUserId();
-							long sneakPeakTweetId = sneakPeakTweet.getId();
-							String sneakPeakText = sneakPeakTweet.getText();
-
-							if (!sneakPeakUserIdsToSneakPeaks
-									.containsKey(sneakPeakUserId)) {
-								sneakPeakUserIdsToSneakPeaks
-										.put(sneakPeakUserId,
-												new SneakPeak(sneakPeakUser,
-														sneakPeakUserId,
-														sneakPeakTweetId,
-														sneakPeakText));
-								datastoreQueryFilterSneakPeakUserIds
-										.add(sneakPeakUserId);
-							}
-
-							if (datastoreQueryFilterSneakPeakUserIds.size() == MAX_DATASTORE_QUERY_FILTER_LIST_SIZE) {
-								removeCorrectedUserSneakPeaks(
-										sneakPeakUserIdsToSneakPeaks,
-										datastoreQueryFilterSneakPeakUserIds);
-
-								if (sneakPeakUserIdsToSneakPeaks.size() >= MAX_CORRECTION_TWEET_COUNT) {
+								if (notAlreadyCorrectedSneakPeakUserId(
+										datastoreService, twitter,
+										sneakPeakUserId)) {
+									correctSneakPeakTweet(resp,
+											datastoreService, twitter,
+											lastSneakPeakTweetIdEntity,
+											sneakPeakTweet, sneakPeakUserId,
+											sneakPeakTweetId);
 									break;
 								}
 							}
 						}
 					}
-					if (datastoreQueryFilterSneakPeakUserIds.size() > 0) {
-						removeCorrectedUserSneakPeaks(
-								sneakPeakUserIdsToSneakPeaks,
-								datastoreQueryFilterSneakPeakUserIds);
-					}
-
-					List<SneakPeak> correctingSneakPeaks = new ArrayList<SneakPeak>(
-							sneakPeakUserIdsToSneakPeaks.values());
-					Collections.sort(correctingSneakPeaks);
-					if (correctingSneakPeaks.size() > MAX_CORRECTION_TWEET_COUNT) {
-						correctingSneakPeaks = correctingSneakPeaks.subList(0,
-								MAX_CORRECTION_TWEET_COUNT);
-					}
-
-					for (SneakPeak correctingSneakPeak : correctingSneakPeaks) {
-						String correctingSneakPeakTweetLog = "correcting: "
-								+ correctingSneakPeak + "<br>";
-						resp.getWriter().println(correctingSneakPeakTweetLog);
-						System.out.println(correctingSneakPeakTweetLog);
-					}
-
-					boolean updatedLastSneakPeakTweetIdEntity = false;
-					for (SneakPeak correctingSneakPeak : correctingSneakPeaks) {
-						String correctionStatusText = "@"
-								+ correctingSneakPeak.sneakPeakUser
-								+ " I think you mean \"sneak peek\"";
-						StatusUpdate correctionStatusUpdate = new StatusUpdate(
-								correctionStatusText);
-						correctionStatusUpdate
-								.setInReplyToStatusId(correctingSneakPeak.sneakPeakTweetId);
-						String correctionStatusUpdateLog = "Correction StatusUpdate: "
-								+ correctionStatusUpdate + "<br>";
-						resp.getWriter().println(correctionStatusUpdateLog);
-						System.out.println(correctionStatusUpdateLog);
-						Status correctionStatus = twitter
-								.updateStatus(correctionStatusUpdate);
-						try {
-							correctionStatus.getId(); // throws
-														// TwitterRuntimeException
-														// if
-														// correctionStatusUpdate
-														// failed
-
-							Entity correctedSneakPeakUserIdEntity = new Entity(
-									"CorrectedSneakPeakUserId");
-							correctedSneakPeakUserIdEntity.setProperty(
-									"correctedSneakPeakUserId",
-									correctingSneakPeak.sneakPeakUserId);
-							datastoreService
-									.put(correctedSneakPeakUserIdEntity);
-							lastSneakPeakTweetIdEntity.setUnindexedProperty(
-									"lastSneakPeakTweetId",
-									correctingSneakPeak.sneakPeakTweetId);
-							updatedLastSneakPeakTweetIdEntity = true;
-						} catch (TwitterRuntimeException e) {
-							e.printStackTrace(System.err);
-							resp.getWriter().println("Fail!<br>");
-							resp.getWriter().println("<pre>");
-							e.printStackTrace(resp.getWriter());
-							resp.getWriter().println("</pre>");
-							break;
-						}
-					}
-
-					if (updatedLastSneakPeakTweetIdEntity) {
-						datastoreService.put(lastSneakPeakTweetIdEntity);
-					}
-				} else {
-					resp.getWriter().println("No tweets found!");
-					System.out.println("No tweets found!");
 				}
 			} catch (TwitterException e) {
 				e.printStackTrace(System.err);
@@ -217,22 +111,96 @@ public class StealthMountainServlet extends HttpServlet {
 		resp.getWriter().println("</html>");
 	}
 
-	private void removeCorrectedUserSneakPeaks(
-			Map<Long, SneakPeak> sneakPeakUserIdsToSneakPeaks,
-			List<Long> datastoreQueryFilterSneakPeakUserIds) {
+	private Entity findOrCreateLastSneakPeakTweetIdEntity(
+			DatastoreService datastoreService) {
+		com.google.appengine.api.datastore.Query lastSneakPeakTweetIdDatastoreQuery = new com.google.appengine.api.datastore.Query(
+				"LastSneakPeakTweetId");
+		Entity lastSneakPeakTweetIdEntity = datastoreService.prepare(
+				lastSneakPeakTweetIdDatastoreQuery).asSingleEntity();
+		if (lastSneakPeakTweetIdEntity == null) {
+			lastSneakPeakTweetIdEntity = new Entity("LastSneakPeakTweetId");
+		}
+
+		return lastSneakPeakTweetIdEntity;
+	}
+
+	private List<Tweet> findSneakPeakTweets(Twitter twitter,
+			Long lastSneakPeakTweetId) throws TwitterException {
+		Query sneakPeakQuery = new Query("\"sneak peak\"");
+		sneakPeakQuery.setLang("en");
+		sneakPeakQuery.setResultType(Query.RECENT);
+		sneakPeakQuery.setRpp(100);
+		if (lastSneakPeakTweetId != null) {
+			sneakPeakQuery.setSinceId(lastSneakPeakTweetId);
+		}
+
+		return twitter.search(sneakPeakQuery).getTweets();
+	}
+
+	private boolean notAlreadyCorrectedSneakPeakUserId(
+			DatastoreService datastoreService, Twitter twitter,
+			long sneakPeakUserId) {
 		com.google.appengine.api.datastore.Query sneakPeakUserIdsDatastoreQuery = new com.google.appengine.api.datastore.Query(
 				"CorrectedSneakPeakUserId");
 		sneakPeakUserIdsDatastoreQuery.addFilter("correctedSneakPeakUserId",
-				FilterOperator.IN, datastoreQueryFilterSneakPeakUserIds);
-		DatastoreService datastoreService = DatastoreServiceFactory
-				.getDatastoreService();
-		List<Entity> correctedSneakPeakUserIdEntities = datastoreService
-				.prepare(sneakPeakUserIdsDatastoreQuery).asList(
-						FetchOptions.Builder.withDefaults());
-		for (Entity correctedSneakPeakUserIdEntity : correctedSneakPeakUserIdEntities) {
-			sneakPeakUserIdsToSneakPeaks.remove(correctedSneakPeakUserIdEntity
-					.getProperty("correctedSneakPeakUserId"));
+				FilterOperator.EQUAL, sneakPeakUserId);
+		return datastoreService.prepare(sneakPeakUserIdsDatastoreQuery)
+				.countEntities(FetchOptions.Builder.withLimit(1)) == 0;
+	}
+
+	private void correctSneakPeakTweet(HttpServletResponse resp,
+			DatastoreService datastoreService, Twitter twitter,
+			Entity lastSneakPeakTweetIdEntity, Tweet sneakPeakTweet,
+			long sneakPeakUserId, long sneakPeakTweetId) throws IOException,
+			TwitterException {
+		String correctingSneakPeakTweetLog = "correcting: " + sneakPeakTweet
+				+ "<br>";
+		resp.getWriter().println(correctingSneakPeakTweetLog);
+		System.out.println(correctingSneakPeakTweetLog);
+
+		String correctionStatusText = "@" + sneakPeakTweet.getFromUser()
+				+ " I think you mean \"sneak peek\"";
+		StatusUpdate correctionStatusUpdate = new StatusUpdate(
+				correctionStatusText);
+		correctionStatusUpdate.setInReplyToStatusId(sneakPeakTweetId);
+		String correctionStatusUpdateLog = "Correction StatusUpdate: "
+				+ correctionStatusUpdate + "<br>";
+		resp.getWriter().println(correctionStatusUpdateLog);
+		System.out.println(correctionStatusUpdateLog);
+		Status correctionStatus = twitter.updateStatus(correctionStatusUpdate);
+		try {
+			correctionStatus.getId(); // throws
+										// TwitterRuntimeException
+										// if
+										// correctionStatusUpdate
+										// failed
+
+			saveNewCorrectedSneakPeakUserId(datastoreService, sneakPeakUserId);
+			updateLastSneakPeakTweetIdEntity(datastoreService,
+					lastSneakPeakTweetIdEntity, sneakPeakTweetId);
+		} catch (TwitterRuntimeException e) {
+			e.printStackTrace(System.err);
+			resp.getWriter().println("Fail!<br>");
+			resp.getWriter().println("<pre>");
+			e.printStackTrace(resp.getWriter());
+			resp.getWriter().println("</pre>");
 		}
-		datastoreQueryFilterSneakPeakUserIds.clear();
+	}
+
+	private void saveNewCorrectedSneakPeakUserId(
+			DatastoreService datastoreService, long correctedSneakPeakUserId) {
+		Entity correctedSneakPeakUserIdEntity = new Entity(
+				"CorrectedSneakPeakUserId");
+		correctedSneakPeakUserIdEntity.setProperty("correctedSneakPeakUserId",
+				correctedSneakPeakUserId);
+		datastoreService.put(correctedSneakPeakUserIdEntity);
+	}
+
+	private void updateLastSneakPeakTweetIdEntity(
+			DatastoreService datastoreService,
+			Entity lastSneakPeakTweetIdEntity, long lastSneakPeakTweetId) {
+		lastSneakPeakTweetIdEntity.setUnindexedProperty("lastSneakPeakTweetId",
+				lastSneakPeakTweetId);
+		datastoreService.put(lastSneakPeakTweetIdEntity);
 	}
 }
