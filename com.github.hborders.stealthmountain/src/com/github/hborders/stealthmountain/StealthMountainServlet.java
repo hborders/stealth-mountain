@@ -56,10 +56,16 @@ public class StealthMountainServlet extends HttpServlet {
 				List<Tweet> sneakPeakTweets = findSneakPeakTweets(twitter,
 						lastSneakPeakTweetId);
 
+				Entity resultEntity = new Entity("Result");
+				resultEntity.setProperty("searchTimeMillis",
+						System.currentTimeMillis());
+				resultEntity.setProperty("count", sneakPeakTweets.size());
+
 				if (sneakPeakTweets.isEmpty()) {
 					resp.getWriter().println("No tweets found!");
 					System.out.println("No tweets found!");
 				} else {
+					boolean corrected = false;
 					for (ListIterator<Tweet> sneakPeakTweetsListIterator = sneakPeakTweets
 							.listIterator(sneakPeakTweets.size()); sneakPeakTweetsListIterator
 							.hasPrevious();) {
@@ -78,6 +84,10 @@ public class StealthMountainServlet extends HttpServlet {
 								if (notAlreadyCorrectedSneakPeakUserId(
 										datastoreService, twitter,
 										sneakPeakUserId)) {
+									corrected = true;
+									resultEntity.setProperty("chosenOffset",
+											sneakPeakTweetsListIterator
+													.previousIndex() + 1);
 									correctSneakPeakTweet(resp,
 											datastoreService, twitter,
 											lastSneakPeakTweetIdEntity,
@@ -87,6 +97,14 @@ public class StealthMountainServlet extends HttpServlet {
 								}
 							}
 						}
+					}
+
+					datastoreService.put(resultEntity);
+
+					if (!corrected) {
+						System.out.println("Couldn't find someone to correct");
+						resp.getWriter().println(
+								"Couldn't find someone to correct<br>");
 					}
 				}
 			} catch (TwitterException e) {
