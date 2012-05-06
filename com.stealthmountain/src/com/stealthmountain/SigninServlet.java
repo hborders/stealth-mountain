@@ -21,7 +21,8 @@ public class SigninServlet extends HttpServlet {
 		Twitter twitter = new TwitterFactory().getInstance();
 		// Fill in these values below, not committing to github for security
 		// reasons
-		twitter.setOAuthConsumer("consumer key", "consumer secret");
+		twitter.setOAuthConsumer("QOx1JMxO5Ypvs7Ay3Hvx9Q",
+				"xctArzc76L9j1ItFI80UxWz7oOyVRtjc5cDRt8");
 		request.getSession().setAttribute("twitter", twitter);
 		try {
 			StringBuffer callbackUrlStringBuffer = request.getRequestURL();

@@ -17,8 +17,12 @@ http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
 		<servlet-class>com.stealthmountain.SignoutServlet</servlet-class>
 	</servlet>
 	<servlet>
-		<servlet-name>TweetServlet</servlet-name>
-		<servlet-class>com.stealthmountain.TweetServlet</servlet-class>
+		<servlet-name>SetupServlet</servlet-name>
+		<servlet-class>com.stealthmountain.SetupServlet</servlet-class>
+	</servlet>
+	<servlet>
+		<servlet-name>CheckSigninServlet</servlet-name>
+		<servlet-class>com.stealthmountain.CheckSigninServlet</servlet-class>
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>CallbackServlet</servlet-name>
@@ -33,10 +37,14 @@ http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
 		<url-pattern>/signout</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
-		<servlet-name>TweetServlet</servlet-name>
-		<url-pattern>/tweet</url-pattern>
+		<servlet-name>SetupServlet</servlet-name>
+		<url-pattern>/setup</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>CheckSigninServlet</servlet-name>
+		<url-pattern>/checkSignin</url-pattern>
 	</servlet-mapping>
 	<welcome-file-list>
-		<welcome-file>tweet.html</welcome-file>
+		<welcome-file>checkSignin</welcome-file>
 	</welcome-file-list>
 </web-app>
