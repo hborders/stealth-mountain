@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xmlns="http://java.sun.com/xml/ns/javaee"
+xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+xsi:schemaLocation="http://java.sun.com/xml/ns/javaee
+http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
+	<servlet>
+		<servlet-name>CallbackServlet</servlet-name>
+		<servlet-class>com.stealthmountain.CallbackServlet</servlet-class>
+	</servlet>
+	<servlet>
+		<servlet-name>SigninServlet</servlet-name>
+		<servlet-class>com.stealthmountain.SigninServlet</servlet-class>
+	</servlet>
+	<servlet>
+		<servlet-name>SignoutServlet</servlet-name>
+		<servlet-class>com.stealthmountain.SignoutServlet</servlet-class>
+	</servlet>
+	<servlet>
+		<servlet-name>TweetServlet</servlet-name>
+		<servlet-class>com.stealthmountain.TweetServlet</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>CallbackServlet</servlet-name>
+		<url-pattern>/callback</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>SigninServlet</servlet-name>
+		<url-pattern>/signin</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>SignoutServlet</servlet-name>
+		<url-pattern>/signout</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>TweetServlet</servlet-name>
+		<url-pattern>/tweet</url-pattern>
+	</servlet-mapping>
+	<welcome-file-list>
+		<welcome-file>tweet.html</welcome-file>
+	</welcome-file-list>
+</web-app>
