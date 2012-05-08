@@ -24,6 +24,18 @@ http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
 		<servlet-name>CheckSigninServlet</servlet-name>
 		<servlet-class>com.stealthmountain.CheckSigninServlet</servlet-class>
 	</servlet>
+	<servlet>
+		<servlet-name>SearchAndRespondServlet</servlet-name>
+		<servlet-class>com.stealthmountain.SearchAndRespondServlet</servlet-class>
+	</servlet>
+	<servlet>
+		<servlet-name>ForeachSearchAndRespondServlet</servlet-name>
+		<servlet-class>com.stealthmountain.ForeachSearchAndRespondServlet</servlet-class>
+	</servlet>
+	<servlet>
+		<servlet-name>TriggerForeachSearchAndRespondServlet</servlet-name>
+		<servlet-class>com.stealthmountain.TriggerForeachSearchAndRespondServlet</servlet-class>
+	</servlet>
 	<servlet-mapping>
 		<servlet-name>CallbackServlet</servlet-name>
 		<url-pattern>/callback</url-pattern>
@@ -44,7 +56,37 @@ http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
 		<servlet-name>CheckSigninServlet</servlet-name>
 		<url-pattern>/checkSignin</url-pattern>
 	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>SearchAndRespondServlet</servlet-name>
+		<url-pattern>/tasks/searchAndRespond</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>ForeachSearchAndRespondServlet</servlet-name>
+		<url-pattern>/tasks/foreachSearchAndRespond</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>TriggerForeachSearchAndRespondServlet</servlet-name>
+		<url-pattern>/cron/triggerForeachSearchAndRespond</url-pattern>
+	</servlet-mapping>
 	<welcome-file-list>
 		<welcome-file>checkSignin</welcome-file>
 	</welcome-file-list>
+	<security-constraint>
+        <web-resource-collection>
+			<web-resource-name>task servlets</web-resource-name>
+            <url-pattern>/tasks/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>admin</role-name>
+        </auth-constraint>
+    </security-constraint>
+	<security-constraint>
+		<web-resource-collection>
+			<web-resource-name>cron servlets</web-resource-name>
+			<url-pattern>/cron/*</url-pattern>
+		</web-resource-collection>
+		<auth-constraint>
+			<role-name>admin</role-name>
+		</auth-constraint>
+	</security-constraint>
 </web-app>

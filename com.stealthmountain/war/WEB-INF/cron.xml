@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cronentries>
+  <cron>
+    <url>/cron/triggerForeachSearchAndRespond</url>
+    <description>Cause a ForeachSearchAndRespond task to execute</description>
+    <schedule>every 10 minutes</schedule>
+  </cron>
+</cronentries>

@@ -31,6 +31,7 @@ public class SetupServlet extends HttpServlet {
 		Entity botEntity = datastoreService.prepare(botQuery).asSingleEntity();
 		botEntity.setProperty("search", search);
 		botEntity.setProperty("response", response);
+		botEntity.setProperty("searchable", true);
 
 		datastoreService.put(botEntity);
 	}

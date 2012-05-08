@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<queue-entries>
+    <queue>
+        <name>searchAndRespond</name>
+        <retry-parameters>
+            <task-retry-limit>0</task-retry-limit>
+        </retry-parameters>
+    </queue>
+    <queue>
+        <name>triggerSearchAndRespond</name>
+        <retry-parameters>
+            <task-retry-limit>0</task-retry-limit>
+        </retry-parameters>
+    </queue>
+</queue-entries>
