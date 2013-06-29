@@ -11,7 +11,6 @@ import javax.servlet.http.HttpServletResponse;
 import twitter4j.Query;
 import twitter4j.Status;
 import twitter4j.StatusUpdate;
-import twitter4j.Tweet;
 import twitter4j.Twitter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
@@ -25,6 +24,7 @@ import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.FetchOptions;
 import com.google.appengine.api.datastore.Query.FilterOperator;
+import com.google.appengine.api.datastore.Query.FilterPredicate;
 
 @SuppressWarnings("serial")
 public class StealthMountainServlet extends HttpServlet {
@@ -53,46 +53,47 @@ public class StealthMountainServlet extends HttpServlet {
 
 				Long lastSneakPeakTweetId = (Long) lastSneakPeakTweetIdEntity
 						.getProperty("lastSneakPeakTweetId");
-				List<Tweet> sneakPeakTweets = findSneakPeakTweets(twitter,
+				List<Status> sneakPeakStatuses = findSneakPeakTweets(twitter,
 						lastSneakPeakTweetId);
 
 				Entity resultEntity = new Entity("Result");
 				resultEntity.setProperty("searchTimeMillis",
 						System.currentTimeMillis());
-				resultEntity.setProperty("count", sneakPeakTweets.size());
+				resultEntity.setProperty("count", sneakPeakStatuses.size());
 
-				if (sneakPeakTweets.isEmpty()) {
+				if (sneakPeakStatuses.isEmpty()) {
 					resp.getWriter().println("No tweets found!");
 					System.out.println("No tweets found!");
 				} else {
 					boolean corrected = false;
-					for (ListIterator<Tweet> sneakPeakTweetsListIterator = sneakPeakTweets
-							.listIterator(sneakPeakTweets.size()); sneakPeakTweetsListIterator
+					for (ListIterator<Status> sneakPeakStatusesListIterator = sneakPeakStatuses
+							.listIterator(sneakPeakStatuses.size()); sneakPeakStatusesListIterator
 							.hasPrevious();) {
-						Tweet sneakPeakTweet = sneakPeakTweetsListIterator
+						Status sneakPeakStatus = sneakPeakStatusesListIterator
 								.previous();
-						String sneakPeakTweetText = sneakPeakTweet.getText();
-						if (!sneakPeakTweetText.contains("@")) {
-							String sneakPeakTweetLowercasedText = sneakPeakTweetText
+						String sneakPeakStatusText = sneakPeakStatus.getText();
+						if (!sneakPeakStatusText.contains("@")) {
+							String sneakPeakStatusLowercasedText = sneakPeakStatusText
 									.toLowerCase();
-							if (sneakPeakTweetLowercasedText
+							if (sneakPeakStatusLowercasedText
 									.contains("sneak peak")) {
-								long sneakPeakUserId = sneakPeakTweet
-										.getFromUserId();
-								long sneakPeakTweetId = sneakPeakTweet.getId();
+								long sneakPeakUserId = sneakPeakStatus
+										.getUser().getId();
+								long sneakPeakStatusId = sneakPeakStatus
+										.getId();
 
 								if (notAlreadyCorrectedSneakPeakUserId(
 										datastoreService, twitter,
 										sneakPeakUserId)) {
 									corrected = true;
 									resultEntity.setProperty("chosenOffset",
-											sneakPeakTweetsListIterator
+											sneakPeakStatusesListIterator
 													.previousIndex() + 1);
-									correctSneakPeakTweet(resp,
+									correctSneakPeakStatus(resp,
 											datastoreService, twitter,
 											lastSneakPeakTweetIdEntity,
-											sneakPeakTweet, sneakPeakUserId,
-											sneakPeakTweetId);
+											sneakPeakStatus, sneakPeakUserId,
+											sneakPeakStatusId);
 									break;
 								}
 							}
@@ -142,12 +143,12 @@ public class StealthMountainServlet extends HttpServlet {
 		return lastSneakPeakTweetIdEntity;
 	}
 
-	private List<Tweet> findSneakPeakTweets(Twitter twitter,
+	private List<Status> findSneakPeakTweets(Twitter twitter,
 			Long lastSneakPeakTweetId) throws TwitterException {
 		Query sneakPeakQuery = new Query("\"sneak peak\"");
+		sneakPeakQuery.setCount(100);
 		sneakPeakQuery.setLang("en");
 		sneakPeakQuery.setResultType(Query.RECENT);
-		sneakPeakQuery.setRpp(100);
 		if (lastSneakPeakTweetId != null) {
 			sneakPeakQuery.setSinceId(lastSneakPeakTweetId);
 		}
@@ -160,27 +161,29 @@ public class StealthMountainServlet extends HttpServlet {
 			long sneakPeakUserId) {
 		com.google.appengine.api.datastore.Query sneakPeakUserIdsDatastoreQuery = new com.google.appengine.api.datastore.Query(
 				"CorrectedSneakPeakUserId");
-		sneakPeakUserIdsDatastoreQuery.addFilter("correctedSneakPeakUserId",
-				FilterOperator.EQUAL, sneakPeakUserId);
+		sneakPeakUserIdsDatastoreQuery.setFilter(new FilterPredicate(
+				"correctedSneakPeakUserId", FilterOperator.EQUAL,
+				sneakPeakUserId));
 		return datastoreService.prepare(sneakPeakUserIdsDatastoreQuery)
 				.countEntities(FetchOptions.Builder.withLimit(1)) == 0;
 	}
 
-	private void correctSneakPeakTweet(HttpServletResponse resp,
+	private void correctSneakPeakStatus(HttpServletResponse resp,
 			DatastoreService datastoreService, Twitter twitter,
-			Entity lastSneakPeakTweetIdEntity, Tweet sneakPeakTweet,
-			long sneakPeakUserId, long sneakPeakTweetId) throws IOException,
+			Entity lastSneakPeakTweetIdEntity, Status sneakPeakStatus,
+			long sneakPeakUserId, long sneakPeakStatusId) throws IOException,
 			TwitterException {
-		String correctingSneakPeakTweetLog = "correcting: " + sneakPeakTweet
+		String correctingSneakPeakStatusLog = "correcting: " + sneakPeakStatus
 				+ "<br>";
-		resp.getWriter().println(correctingSneakPeakTweetLog);
-		System.out.println(correctingSneakPeakTweetLog);
+		resp.getWriter().println(correctingSneakPeakStatusLog);
+		System.out.println(correctingSneakPeakStatusLog);
 
-		String correctionStatusText = "@" + sneakPeakTweet.getFromUser()
+		String correctionStatusText = "@"
+				+ sneakPeakStatus.getUser().getScreenName()
 				+ " I think you mean \"sneak peek\"";
 		StatusUpdate correctionStatusUpdate = new StatusUpdate(
 				correctionStatusText);
-		correctionStatusUpdate.setInReplyToStatusId(sneakPeakTweetId);
+		correctionStatusUpdate.setInReplyToStatusId(sneakPeakStatusId);
 		String correctionStatusUpdateLog = "Correction StatusUpdate: "
 				+ correctionStatusUpdate + "<br>";
 		resp.getWriter().println(correctionStatusUpdateLog);
@@ -195,7 +198,7 @@ public class StealthMountainServlet extends HttpServlet {
 
 			saveNewCorrectedSneakPeakUserId(datastoreService, sneakPeakUserId);
 			updateLastSneakPeakTweetIdEntity(datastoreService,
-					lastSneakPeakTweetIdEntity, sneakPeakTweetId);
+					lastSneakPeakTweetIdEntity, sneakPeakStatusId);
 		} catch (TwitterRuntimeException e) {
 			e.printStackTrace(System.err);
 			resp.getWriter().println("Fail!<br>");
