@@ -3,6 +3,10 @@
   <cron>
     <url>/cron/StealthMountainServlet</url>
     <description>Search for the first 100 "sneak peak" tweets and alert the oldest 1 authors</description>
+    <!--
+    Rate limited by twitter Jan 25, 2014 
     <schedule>every 2 minutes</schedule>
+     --> 
+    <schedule>every 10 minutes</schedule>
   </cron>
 </cronentries>
